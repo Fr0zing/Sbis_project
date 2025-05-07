@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пекарня "Мельница" — Управление продажами</title>
+    <!-- Tailwind CSS через CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Подключаем стили -->
+    <link rel="stylesheet" href="/styles.css">
+    <!-- Подключаем flatpickr для календаря -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Подключаем axios для запросов -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Подключаем SheetJS для экспорта в XLSX -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Стили для спиннера -->
+    <style>
+        .spinner {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <!-- Добавляем favicon -->
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+</head>
+<body class="flex min-h-screen bg-gray-100">
+    <div class="flex w-full">
+        <!-- Боковая панель слева -->
+        <div class="sidebar w-64 bg-gray-800 text-white p-4">
+            <h2 class="text-2xl px-4 font-bold mb-6">Пекарня</h2>
+            <ul class="space-y-2">
+                <li><button class="w-full text-left px-4 py-2 hover:bg-gray-700 rounded-lg" data-tab="production">План производства</button></li>
+                <li><button class="w-full text-left px-4 py-2 hover:bg-gray-700 rounded-lg" data-tab="sales">Статистика продаж</button></li>
+                <li><button class="w-full text-left px-4 py-2 hover:bg-gray-700 rounded-lg" data-tab="stock">Остатки на складах</button></li>
+                <li><button class="w-full text-left px-4 py-2 hover:bg-gray-700 rounded-lg" data-tab="writeoffs">Списания</button></li>
+            </ul>
+        </div>
+
+        <!-- Основная область справа -->
+        <div class="main-content flex-1 p-6">
+            <!-- Вкладка: План производства -->
+            <div id="production" class="tab-content bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">План производства</h3>
+                <div class="filters mb-4">
+                    <label for="productionPlanningDate" class="mr-2">День для планирования:</label>
+                    <input type="text" id="productionPlanningDate" class="border p-2 rounded" placeholder="Выберите день">
+
+                    <label for="productionPointSelect" class="ml-4 mr-2">Точка продаж:</label>
+                    <select id="productionPointSelect" class="border p-2 rounded">
+                        <option value="">Все точки</option>
+                    </select>
+
+                    <button id="showProductionPlan" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Показать</button>
+                    <button id="editProduction" class="bg-yellow-500 text-white px-4 py-2 rounded ml-2">Изменить</button>
+                    <button id="exportProductionXlsx" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Экспорт в Excel</button>
+                    <button id="manageBlacklist" class="bg-gray-500 text-white px-4 py-2 rounded ml-2">Управление чёрным списком</button>
+                </div>
+                <div id="productionTabs" class="flex space-x-2 mb-4"></div>
+                <div id="loadingSpinner" class="spinner"></div>
+                <div id="blacklistContainer" class="mb-4 hidden">
+                    <h4 class="text-lg font-semibold mb-2">Чёрный список товаров:</h4>
+                    <div class="mb-2">
+                        <label for="newBlacklistItem" class="mr-2">Добавить товар:</label>
+                        <input type="text" id="newBlacklistItem" class="border p-2 rounded" placeholder="Введите название товара">
+                        <button id="addBlacklistItem" class="bg-blue-500 text-white px-4 py-2 rounded ml-2">Добавить</button>
+                    </div>
+                    <ul id="blacklistItems" class="list-disc pl-5"></ul>
+                </div>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">Товар</th>
+                            <th class="border p-2">Прогнозируемый спрос</th>
+                            <th class="border p-2">Остатки на складе</th>
+                            <th class="border p-2">К производству</th>
+                            <th class="border p-2">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productionData"></tbody>
+                </table>
+            </div>
+
+            <!-- Вкладка: Статистика продаж -->
+            <div id="sales" class="tab-content bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Статистика продаж</h3>
+                <div id="salesDataPeriod" class="mb-4 text-gray-600"></div>
+                <div class="filters mb-4">
+                    <label for="dateRange" class="mr-2">Выберите период:</label>
+                    <input type="text" id="dateRange" class="border p-2 rounded" placeholder="Выберите даты">
+
+                    <label for="pointSelect" class="ml-4 mr-2">Точка продаж:</label>
+                    <select id="pointSelect" class="border p-2 rounded">
+                        <option value="">Все точки</option>
+                    </select>
+
+                    <button id="showSalesData" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Показать</button>
+                    <button id="exportXlsx" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Экспорт в XLSX</button>
+                </div>
+                <div id="loadingSpinner" class="spinner"></div>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">Точка продаж</th>
+                            <th class="border p-2">Продукт</th>
+                            <th class="border p-2">Количество</th>
+                            <th class="border p-2">Сумма (руб.)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesData"></tbody>
+                </table>
+            </div>
+
+            <!-- Вкладка: Остатки на складах -->
+            <div id="stock" class="tab-content bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Остатки на складах</h3>
+                <button class="refresh-btn bg-blue-500 text-white px-4 py-2 rounded mb-4" data-tab="stock">Обновить</button>
+                <div id="loadingSpinner" class="spinner"></div>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">Продукт</th>
+                            <th class="border p-2">Количество</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockData"></tbody>
+                </table>
+            </div>
+
+            <!-- Вкладка: Списания -->
+            <div id="writeoffs" class="tab-content bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Списания</h3>
+                <div class="writeoff-form mb-4">
+                    <label for="writeoffDate" class="mr-2">Дата списания:</label>
+                    <input type="text" id="writeoffDate" class="border p-2 rounded" placeholder="Выберите дату">
+
+                    <label for="writeoffPointSelect" class="ml-4 mr-2">Точка продаж:</label>
+                    <select id="writeoffPointSelect" class="border p-2 rounded">
+                        <option value="">Выберите точку</option>
+                    </select>
+
+                    <label for="writeoffProduct" class="ml-4 mr-2">Продукт:</label>
+                    <input type="text" id="writeoffProduct" class="border p-2 rounded" placeholder="Введите название продукта">
+
+                    <label for="writeoffQuantity" class="ml-4 mr-2">Количество:</label>
+                    <input type="number" id="writeoffQuantity" class="border p-2 rounded" placeholder="Введите количество" min="0">
+
+                    <label for="writeoffReason" class="ml-4 mr-2">Причина списания:</label>
+                    <input type="text" id="writeoffReason" class="border p-2 rounded" placeholder="Введите причину">
+
+                    <button id="submitWriteoff" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Добавить списание</button>
+                </div>
+                <div id="loadingSpinner" class="spinner"></div>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">Дата</th>
+                            <th class="border p-2">Точка продаж</th>
+                            <th class="border p-2">Продукт</th>
+                            <th class="border p-2">Количество</th>
+                            <th class="border p-2">Причина</th>
+                        </tr>
+                    </thead>
+                    <tbody id="writeoffData"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Подключаем JS-файлы -->
+    <script src="/config.js"></script>
+    <script src="/common.js"></script>
+    <script src="/sales.js"></script>
+    <script src="/production.js"></script>
+    <script src="/stock.js"></script>
+    <script src="/writeoffs.js"></script>
+    <!-- Логика переключения вкладок -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const tabs = document.querySelectorAll(".tab-content");
+            const tabButtons = document.querySelectorAll("button[data-tab]");
+
+            // Показываем первую вкладку по умолчанию
+            tabs[0].classList.add("active");
+
+            // Обработчик переключения вкладок
+            tabButtons.forEach(button => {
+                button.addEventListener("click", function () {
+                    const tabId = this.getAttribute("data-tab");
+                    tabs.forEach(tab => tab.classList.remove("active"));
+                    document.getElementById(tabId).classList.add("active");
+                });
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93c36b4a6d017b91',t:'MTc0NjY0OTIzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
