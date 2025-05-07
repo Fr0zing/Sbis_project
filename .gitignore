@@ -8,7 +8,7 @@ cache/
 
 Игнорируем временные файлы Python
 
-*.pyc __pycache__/
+*.pyc pycache/
 
 Игнорируем логи
 
@@ -17,3 +17,7 @@ logs/ *.log
 Игнорируем виртуальное окружение (если будет создано)
 
 venv/
+
+Игнорируем sid_cache.json
+
+backend/sid_cache.json
