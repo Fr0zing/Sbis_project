@@ -1,0 +1,8 @@
+2025-05-10 09:55:05,686 - __main__ - INFO - Зарегистрированные маршруты:
+2025-05-10 09:55:05,690 - __main__ - INFO - /api/production_plan
+2025-05-10 09:55:05,691 - __main__ - INFO - /api/writeoffs
+2025-05-10 09:55:05,691 - __main__ - INFO - /api/writeoffs
+2025-05-10 09:55:05,691 - __main__ - INFO - /api/receipts
+2025-05-10 09:55:05,691 - __main__ - INFO - /api/auth
+2025-05-10 09:55:05,691 - __main__ - INFO - /api/kkts
+2025-05-10 09:55:05,691 - __main__ - INFO - /static/<path:filename>
