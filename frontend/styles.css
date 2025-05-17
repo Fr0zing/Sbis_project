@@ -1,5 +1,14 @@
 /* Tailwind CSS уже подключён через CDN в index.html, поэтому мы можем использовать его классы */
 
+/* Стили для переключения вкладок */
+.tab-content {
+    display: none !important;
+}
+
+.tab-content.active {
+    display: block !important;
+}
+
 /* Дополнительные стили для модального окна */
 .modal {
     display: flex;
@@ -28,8 +37,6 @@
     border-radius: 0.5rem; /* rounded-lg */
     box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1); /* shadow-lg */
     padding: 1.5rem; /* p-6 */
-    max-width: 24rem; /* max-w-sm */
-    width: 100%;
 }
 
 .modal .text-2xl {
@@ -90,4 +97,46 @@
 
 .modal .hover\:bg-gray-600:hover {
     background-color: #4b5563; /* Tailwind's gray-600 */
+}
+
+/* Стили для отображения товаров в модальном окне */
+#writeoffItems {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* space-y-2 */
+    max-height: 24rem; /* max-h-96 */
+    overflow-y: auto;
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+}
+
+.writeoff-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* space-x-2 */
+    border: 1px solid #e5e7eb; /* border */
+    padding: 0.5rem; /* p-2 */
+    border-radius: 0.375rem; /* rounded */
+    margin-bottom: 0.5rem; /* mb-2 */
+}
+
+.writeoff-item input,
+.writeoff-item select {
+    padding: 0.25rem; /* p-1 */
+    font-size: 0.875rem; /* text-sm */
+}
+
+.writeoff-item .modal-date {
+    width: 2rem; /* w-8 */
+}
+
+.writeoff-item .modal-point-select {
+    width: 11rem; /* w-44 */
+}
+
+.writeoff-item input[type="text"] {
+    width: 17rem; /* w-68 */
+}
+
+.writeoff-item input[type="number"] {
+    width: 7rem; /* w-28 */
 }
