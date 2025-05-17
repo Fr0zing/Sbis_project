@@ -8,6 +8,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         defaultDate: new Date().toISOString().split('T')[0]
     });
 
+    // Инициализация календаря для фильтра по дате
+    flatpickr("#writeoffFilterDateRange", {
+        mode: "range",
+        dateFormat: "Y-m-d",
+        maxDate: "today"
+    });
+
     // Показать сообщение об ошибке через модальное окно
     function showError(message) {
         window.common.showModal("Ошибка", message, "error");
@@ -18,12 +25,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         try {
             const kktList = await window.common.loadKktList();
             const pointSelect = document.getElementById("writeoffPointSelect");
+            const filterPointSelect = document.getElementById("writeoffFilterPoint");
             pointSelect.innerHTML = '<option value="">Выберите точку</option>';
+            filterPointSelect.innerHTML = '<option value="">Все точки</option>';
             kktList.forEach(point => {
                 const option = document.createElement("option");
                 option.value = point.pointName;
                 option.textContent = point.pointName;
-                pointSelect.appendChild(option);
+                pointSelect.appendChild(option.cloneNode(true));
+                filterPointSelect.appendChild(option);
             });
             console.log("Точки продаж для списаний загружены:", kktList);
         } catch (error) {
@@ -42,7 +52,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             if (writeoffs.length === 0) {
                 tableBody.innerHTML = "<tr><td colspan='5'>Нет данных о списаниях</td></tr>";
-                return;
+                return [];
             }
 
             writeoffs.forEach(writeoff => {
@@ -56,9 +66,11 @@ document.addEventListener("DOMContentLoaded", async function () {
                 `;
                 tableBody.appendChild(row);
             });
+            return writeoffs; // Возвращаем списания для дальнейшего использования
         } catch (error) {
             console.error("Ошибка при загрузке списаний:", error);
             showError(`Ошибка загрузки списаний: ${error.response?.data?.error || error.message}`);
+            return [];
         }
     }
 
@@ -100,6 +112,75 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // Экспорт списаний в Excel с фильтрацией
+    async function exportWriteoffsToExcel() {
+        try {
+            // Загружаем списания
+            let writeoffs = await loadWriteoffs();
+            if (!writeoffs || writeoffs.length === 0) {
+                window.common.showModal("Ошибка", "Нет данных для экспорта", "error");
+                return;
+            }
+
+            // Применяем фильтры
+            const dateRange = document.getElementById("writeoffFilterDateRange").value;
+            const pointFilter = document.getElementById("writeoffFilterPoint").value;
+
+            // Фильтрация по дате
+            if (dateRange) {
+                const [dateFrom, dateTo] = dateRange.split(" to ");
+                if (dateFrom && dateTo) {
+                    writeoffs = writeoffs.filter(writeoff => {
+                        const writeoffDate = new Date(writeoff.date);
+                        const from = new Date(dateFrom);
+                        const to = new Date(dateTo);
+                        return writeoffDate >= from && writeoffDate <= to;
+                    });
+                } else if (dateFrom) {
+                    writeoffs = writeoffs.filter(writeoff => {
+                        const writeoffDate = new Date(writeoff.date);
+                        const from = new Date(dateFrom);
+                        return writeoffDate >= from;
+                    });
+                }
+            }
+
+            // Фильтрация по точке продаж
+            if (pointFilter) {
+                writeoffs = writeoffs.filter(writeoff => writeoff.point === pointFilter);
+            }
+
+            if (writeoffs.length === 0) {
+                window.common.showModal("Ошибка", "Нет данных для экспорта после применения фильтров", "error");
+                return;
+            }
+
+            // Формируем данные для Excel
+            const data = [
+                ["Дата списания", "Точка продаж", "Товар", "Количество", "Причина списания"], // Заголовки
+                ...writeoffs.map(writeoff => [
+                    writeoff.date,
+                    writeoff.point,
+                    writeoff.product,
+                    writeoff.quantity,
+                    writeoff.reason
+                ])
+            ];
+
+            // Создаём рабочий лист
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            // Создаём рабочую книгу
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Writeoffs");
+            // Экспортируем файл
+            XLSX.writeFile(wb, "writeoffs.xlsx");
+            window.common.showModal("Успех", "Списания успешно экспортированы в Excel!", "success");
+        } catch (error) {
+            console.error("Ошибка при экспорте списаний в Excel:", error);
+            window.common.showModal("Ошибка", "Ошибка экспорта в Excel: " + error.message, "error");
+        }
+    }
+
     // Инициализация
     try {
         await window.common.getSid();
@@ -124,5 +205,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         });
     } else {
         console.error("Кнопка 'submitWriteoff' не найдена");
+    }
+
+    // Добавляем обработчик события для кнопки "Экспорт в Excel"
+    const exportButton = document.getElementById("exportWriteoffsToExcel");
+    if (exportButton) {
+        exportButton.addEventListener("click", async function () {
+            console.log("Обработчик кнопки 'Экспорт в Excel' сработал");
+            await exportWriteoffsToExcel();
+        });
+    } else {
+        console.error("Кнопка 'exportWriteoffsToExcel' не найдена");
     }
 });

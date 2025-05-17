@@ -107,7 +107,6 @@
 
                     <button id="showSalesData" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Показать</button>
                     <button id="exportXlsx" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Экспорт в XLSX</button>
-                    <button class="bg-gray-500 text-white px-4 py-2 rounded ml-2">Очистить фильтры</button>
                 </div>
                 <div id="loadingSpinner" class="spinner"></div>
                 <table class="w-full border-collapse">
@@ -162,6 +161,17 @@
 
                     <button id="submitWriteoff" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Добавить списание</button>
                 </div>
+                <div class="filters mb-4">
+                    <label for="writeoffFilterDateRange" class="mr-2">Фильтр по дате:</label>
+                    <input type="text" id="writeoffFilterDateRange" class="border p-2 rounded" placeholder="Выберите период">
+
+                    <label for="writeoffFilterPoint" class="ml-4 mr-2">Фильтр по точке:</label>
+                    <select id="writeoffFilterPoint" class="border p-2 rounded">
+                        <option value="">Все точки</option>
+                    </select>
+
+                    <button id="exportWriteoffsToExcel" class="bg-green-500 text-white px-4 py-2 rounded ml-4">Экспорт в Excel</button>
+                </div>
                 <div id="loadingSpinner" class="spinner"></div>
                 <table class="w-full border-collapse">
                     <thead>
@@ -192,7 +202,9 @@
             const tabButtons = document.querySelectorAll("button[data-tab]");
 
             // Показываем первую вкладку по умолчанию
-            tabs[0].classList.add("active");
+            if (tabs.length > 0) {
+                tabs[0].classList.add("active");
+            }
 
             // Обработчик переключения вкладок
             tabButtons.forEach(button => {
@@ -204,5 +216,5 @@
             });
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93c36b4a6d017b91',t:'MTc0NjY0OTIzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
