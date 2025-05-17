@@ -1,46 +1,14 @@
 // production.js
 
 document.addEventListener("DOMContentLoaded", async function () {
-    const apiBaseUrl = "http://localhost:5000"; // Используем имя сервиса из Docker Compose
-    const apiToken = "your-secret-token-12345"; // Токен для авторизации
-    let sid = null;
     let isLoading = false;
-    let kktList = null; // Глобальная переменная для хранения списка KKT
     let productionData = null; // Сохраняем данные плана производства
     let blacklist = JSON.parse(localStorage.getItem("productionBlacklist")) || []; // Чёрный список товаров
     let quantityAdjustments = JSON.parse(localStorage.getItem("productionQuantityAdjustments")) || {}; // Корректировки количества
     let isEditing = false; // Флаг режима редактирования
 
-    // Настройка Axios с увеличенным таймаутом
-    const axiosInstance = axios.create({
-        timeout: 120000, // Таймаут 120 секунд
-        headers: {
-            "Authorization": `Bearer ${apiToken}`
-        }
-    });
-
-    // Функция для повторных попыток
-    async function axiosWithRetry(requestFunc, retries = 3, delay = 2000) {
-        for (let i = 0; i < retries; i++) {
-            try {
-                return await requestFunc();
-            } catch (error) {
-                if (i === retries - 1) throw error; // Последняя попытка
-                console.log(`Попытка ${i + 1} не удалась, повтор через ${delay} мс:`, error.message);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        }
-    }
-
     // Восстановление фильтров из localStorage
     const savedPointName = localStorage.getItem("pointName") || "";
-
-    // Проверяем, есть ли кэшированный список KKT
-    const cachedKktList = localStorage.getItem("kktList");
-    if (cachedKktList) {
-        kktList = JSON.parse(cachedKktList);
-        console.log("Список KKT загружен из кэша:", kktList);
-    }
 
     // Инициализация календаря для дня планирования
     flatpickr("#productionPlanningDate", {
@@ -51,8 +19,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Показать сообщение об ошибке
     function showError(message) {
-        const tableBody = document.getElementById("productionData");
-        tableBody.innerHTML = `<tr><td colspan='5'>${message}</td></tr>`;
+        window.common.showModal("Ошибка", message, "error");
     }
 
     // Управление индикатором загрузки
@@ -75,57 +42,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Получение SID
-    async function getSid() {
-        try {
-            console.log("Запрашиваем SID...");
-            console.log("Адрес API:", `${apiBaseUrl}/api/auth`);
-            console.log("Заголовки:", { "Authorization": `Bearer ${apiToken}` });
-            const response = await axiosWithRetry(() => axiosInstance.get(`${apiBaseUrl}/api/auth`));
-            sid = response.data.sid;
-            console.log("SID получен:", sid);
-        } catch (error) {
-            console.error("Ошибка при получении SID:", error);
-            let errorMessage = "Ошибка при получении SID: " + error.message;
-            if (error.code === "ERR_NETWORK") {
-                errorMessage += " (Проверьте, запущен ли сервер на " + apiBaseUrl + ")";
-            }
-            if (error.response) {
-                console.error("Ответ сервера:", error.response.status, error.response.data);
-                errorMessage += ` (Статус: ${error.response.status}, Ошибка: ${error.response.data.error})`;
-            } else if (error.request) {
-                console.error("Запрос не дошёл до сервера:", error.request);
-                errorMessage += " (Сервер недоступен)";
-            }
-            showError(errorMessage);
-            throw error;
-        }
-    }
-
     // Загрузка списка точек продаж для вкладки "План производства"
     async function loadProductionPoints() {
-        // Если список KKT уже кэширован, используем его
-        if (kktList) {
-            const pointSelect = document.getElementById("productionPointSelect");
-            pointSelect.innerHTML = '<option value="">Все точки</option>';
-            kktList.forEach(point => {
-                const option = document.createElement("option");
-                option.value = point.pointName;
-                option.textContent = point.pointName;
-                pointSelect.appendChild(option);
-            });
-            pointSelect.value = savedPointName;
-            console.log("Точки продаж для плана производства загружены из кэша:", kktList);
-            return;
-        }
-
         try {
-            console.log("Запрашиваем точки продаж для плана производства...");
-            const response = await axiosWithRetry(() => axiosInstance.get(`${apiBaseUrl}/api/kkts`, {
-                headers: { "X-SBISSessionID": sid }
-            }));
-            kktList = response.data.kkts; // Сохраняем список KKT
-            localStorage.setItem("kktList", JSON.stringify(kktList)); // Кэшируем в localStorage
+            const kktList = await window.common.loadKktList();
             const pointSelect = document.getElementById("productionPointSelect");
             pointSelect.innerHTML = '<option value="">Все точки</option>';
             kktList.forEach(point => {
@@ -134,14 +54,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 option.textContent = point.pointName;
                 pointSelect.appendChild(option);
             });
-            // Восстанавливаем выбранную точку
             pointSelect.value = savedPointName;
             console.log("Точки продаж для плана производства загружены:", kktList);
         } catch (error) {
             console.error("Ошибка при загрузке точек продаж для плана производства:", error);
             let errorMessage = "Ошибка загрузки точек продаж: " + error.message;
             if (error.code === "ERR_NETWORK") {
-                errorMessage += " (Проверьте, запущен ли сервер на " + apiBaseUrl + ")";
+                errorMessage += " (Проверьте, запущен ли сервер на http://localhost:5000)";
             }
             showError(errorMessage);
         }
@@ -270,7 +189,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Экспорт данных в Excel
     function exportProductionToXlsx() {
         if (!productionData || productionData.length === 0) {
-            alert("Нет данных для экспорта");
+            window.common.showModal("Ошибка", "Нет данных для экспорта", "error");
             return;
         }
 
@@ -326,6 +245,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.log("Запрос уже выполняется, пропускаем");
             return;
         }
+        const sid = window.common.getSidValue();
         if (!sid) {
             console.log("SID не получен");
             showError("SID не получен. Пожалуйста, обновите страницу.");
@@ -333,6 +253,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
 
         // Ждём, пока список KKT не будет загружен
+        const kktList = window.common.getKktList();
         if (!kktList) {
             console.log("Список KKT ещё не загружен, ждём...");
             await loadProductionPoints();
@@ -367,7 +288,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 params.append("point_name", pointName);
             }
 
-            const response = await axiosWithRetry(() => axiosInstance.get(`${apiBaseUrl}/api/production_plan?${params.toString()}`, {
+            const response = await window.common.axiosWithRetry(() => window.common.axiosInstance.get(`http://localhost:5000/api/production_plan?${params.toString()}`, {
                 headers: { "X-SBISSessionID": sid }
             }));
 
@@ -386,7 +307,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.error("Ошибка при загрузке плана производства:", error);
             let errorMessage = "Ошибка загрузки плана производства: " + error.message;
             if (error.code === "ERR_NETWORK") {
-                errorMessage += " (Проверьте, запущен ли сервер на " + apiBaseUrl + ")";
+                errorMessage += " (Проверьте, запущен ли сервер на http://localhost:5000)";
             }
             showError(errorMessage);
         } finally {
@@ -454,9 +375,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 }
             }
         } else if (!newItem) {
-            alert("Введите название товара!");
+            window.common.showModal("Ошибка", "Введите название товара!", "error");
         } else {
-            alert("Этот товар уже в чёрном списке!");
+            window.common.showModal("Ошибка", "Этот товар уже в чёрном списке!", "error");
         }
     });
 
@@ -491,8 +412,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Инициализация
     try {
-        await getSid();
-        if (sid) {
+        await window.common.getSid();
+        if (window.common.getSidValue()) {
             await loadProductionPoints();
         } else {
             showError("Не удалось инициализировать SID");

@@ -65,8 +65,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Показать сообщение об ошибке
     function showError(message) {
-        const tableBody = document.getElementById("salesData");
-        tableBody.innerHTML = `<tr><td colspan='4'>${message}</td></tr>`;
+        window.common.showModal("Ошибка", message, "error");
     }
 
     // Управление индикатором загрузки
@@ -113,7 +112,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Экспорт данных в XLSX
     function exportToXlsx() {
         if (!currentData || currentData.length === 0) {
-            alert("Нет данных для экспорта");
+            window.common.showModal("Ошибка", "Нет данных для экспорта", "error");
             return;
         }
 

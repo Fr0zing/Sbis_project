@@ -8,10 +8,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         defaultDate: new Date().toISOString().split('T')[0]
     });
 
-    // Показать сообщение об ошибке
+    // Показать сообщение об ошибке через модальное окно
     function showError(message) {
-        const tableBody = document.getElementById("writeoffData");
-        tableBody.innerHTML = `<tr><td colspan='5'>${message}</td></tr>`;
+        window.common.showModal("Ошибка", message, "error");
     }
 
     // Загрузка списка точек продаж для вкладки "Списания"
@@ -73,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         // Валидация
         if (!date || !point || !product || isNaN(quantity) || quantity <= 0 || !reason) {
-            alert("Пожалуйста, заполните все поля корректно!");
+            window.common.showModal("Ошибка", "Пожалуйста, заполните все поля корректно!", "error");
             return;
         }
 
@@ -94,10 +93,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             document.getElementById("writeoffProduct").value = "";
             document.getElementById("writeoffQuantity").value = "";
             document.getElementById("writeoffReason").value = "";
-            alert("Списание успешно добавлено!");
+            window.common.showModal("Успех", "Списание успешно добавлено!", "success");
         } catch (error) {
             console.error("Ошибка при добавлении списания:", error);
-            alert(`Ошибка при добавлении списания: ${error.response?.data?.error || error.message}`);
+            window.common.showModal("Ошибка", `Ошибка при добавлении списания: ${error.response?.data?.error || error.message}`, "error");
         }
     }
 

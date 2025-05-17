@@ -69,6 +69,68 @@ function aggregateAllPoints(data) {
     };
 }
 
+// Функция для отображения модального окна
+function showModal(title, message, type = 'error') {
+    console.log(`showModal вызван: title=${title}, message=${message}, type=${type}`);
+
+    // Удаляем существующее модальное окно, если оно есть
+    const existingModal = document.querySelector('.modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Определяем стили в зависимости от типа сообщения
+    let bgColorClass, icon;
+    switch (type) {
+        case 'success':
+            bgColorClass = 'bg-green-500';
+            icon = '✔'; // Иконка успеха
+            break;
+        case 'warning':
+            bgColorClass = 'bg-yellow-500';
+            icon = '⚠'; // Иконка предупреждения
+            break;
+        case 'error':
+        default:
+            bgColorClass = 'bg-red-500';
+            icon = '✖'; // Иконка ошибки
+            break;
+    }
+
+    // Создаём модальное окно
+    const modal = document.createElement('div');
+    modal.className = 'modal fixed inset-0 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="fixed inset-0 bg-black opacity-50"></div>
+        <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <div class="flex items-center mb-4">
+                <span class="text-2xl mr-2">${icon}</span>
+                <h2 class="text-xl font-semibold ${bgColorClass} text-white px-4 py-2 rounded">${title}</h2>
+            </div>
+            <p class="mb-4">${message}</p>
+            <div class="flex justify-end">
+                <button class="close-modal bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Закрыть</button>
+            </div>
+        </div>
+    `;
+
+    // Добавляем модальное окно в документ
+    document.body.appendChild(modal);
+
+    // Обработчик закрытия модального окна
+    const closeModal = () => modal.remove();
+
+    // Закрытие при клике на кнопку "Закрыть"
+    modal.querySelector('.close-modal').addEventListener('click', closeModal);
+
+    // Закрытие при клике вне модального окна
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+}
+
 // Глобальные переменные
 let sid = null;
 let kktList = null;
@@ -149,6 +211,7 @@ window.common = {
     addDays,
     getDaysDifference,
     aggregateAllPoints,
+    showModal, // Добавляем функцию showModal
     axiosInstance,
     axiosWithRetry,
     getSid,
