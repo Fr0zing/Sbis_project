@@ -332,6 +332,12 @@ def add_writeoff():
             if field not in data or not data[field]:
                 return jsonify({"error": f"Поле {field} обязательно"}), 400
 
+        # Валидация формата даты
+        try:
+            datetime.strptime(data["date"], "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": "Некорректный формат даты. Используйте формат YYYY-MM-DD (например, 2025-05-08)"}), 400
+
         quantity = int(data["quantity"])
         if quantity <= 0:
             return jsonify({"error": "Количество должно быть больше 0"}), 400
