@@ -372,6 +372,37 @@ def add_writeoff():
         logger.error(f"Ошибка добавления списания: {str(e)}")
         return jsonify({"error": f"Ошибка добавления списания: {str(e)}"}), 500
 
+@app.route('/api/writeoffs/<int:id>', methods=['DELETE'])
+def delete_writeoff(id):
+    if not check_auth_token():
+        return jsonify({"error": "Неавторизованный доступ"}), 401
+
+    try:
+        # Читаем текущие списания
+        if os.path.exists(WRITE_OFFS_FILE):
+            with open(WRITE_OFFS_FILE, 'r', encoding='utf-8') as f:
+                writeoffs = json.load(f)
+        else:
+            writeoffs = []
+
+        # Ищем списание с указанным id
+        writeoff_index = next((index for (index, w) in enumerate(writeoffs) if w["id"] == id), None)
+        if writeoff_index is None:
+            return jsonify({"error": f"Списание с id {id} не найдено"}), 404
+
+        # Удаляем списание
+        deleted_writeoff = writeoffs.pop(writeoff_index)
+
+        # Сохраняем обновлённый список в файл
+        with open(WRITE_OFFS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(writeoffs, f, ensure_ascii=False)
+
+        logger.info(f"Списание с id {id} успешно удалено")
+        return jsonify({"message": f"Списание с id {id} успешно удалено", "writeoff": deleted_writeoff}), 200
+    except Exception as e:
+        logger.error(f"Ошибка удаления списания с id {id}: {str(e)}")
+        return jsonify({"error": f"Ошибка удаления списания: {str(e)}"}), 500
+
 # Вывод зарегистрированных маршрутов
 logger.info("Зарегистрированные маршруты:")
 for rule in app.url_map.iter_rules():

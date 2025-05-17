@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             tableBody.innerHTML = ""; // Очищаем таблицу перед обновлением
 
             if (writeoffs.length === 0) {
-                tableBody.innerHTML = "<tr><td colspan='5'>Нет данных о списаниях</td></tr>";
+                tableBody.innerHTML = "<tr><td colspan='6'>Нет данных о списаниях</td></tr>";
                 return [];
             }
 
@@ -63,9 +63,21 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <td>${writeoff.product}</td>
                     <td>${writeoff.quantity}</td>
                     <td>${writeoff.reason}</td>
+                    <td>
+                        <button class="delete-writeoff bg-red-500 text-white px-2 py-1 rounded" data-id="${writeoff.id}">Удалить</button>
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
+
+            // Добавляем обработчики для кнопок удаления
+            document.querySelectorAll(".delete-writeoff").forEach(button => {
+                button.addEventListener("click", async function () {
+                    const id = parseInt(this.getAttribute("data-id"));
+                    await deleteWriteoff(id);
+                });
+            });
+
             return writeoffs; // Возвращаем списания для дальнейшего использования
         } catch (error) {
             console.error("Ошибка при загрузке списаний:", error);
@@ -109,6 +121,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         } catch (error) {
             console.error("Ошибка при добавлении списания:", error);
             window.common.showModal("Ошибка", `Ошибка при добавлении списания: ${error.response?.data?.error || error.message}`, "error");
+        }
+    }
+
+    // Удаление списания
+    async function deleteWriteoff(id) {
+        try {
+            await window.common.axiosWithRetry(() => window.common.axiosInstance.delete(`http://localhost:5000/api/writeoffs/${id}`));
+            // Обновляем таблицу
+            await loadWriteoffs();
+            window.common.showModal("Успех", `Списание с id ${id} успешно удалено!`, "success");
+        } catch (error) {
+            console.error("Ошибка при удалении списания:", error);
+            window.common.showModal("Ошибка", `Ошибка при удалении списания: ${error.response?.data?.error || error.message}`, "error");
         }
     }
 
