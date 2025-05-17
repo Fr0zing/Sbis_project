@@ -35,6 +35,8 @@ API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-12345")
 
 # Путь к файлам для хранения данных
 WRITE_OFFS_FILE = "writeoffs.json"
+STOCKS_FILE = "stocks.json"
+PRODUCTS_FILE = "products.json"
 
 # Проверка токена
 def check_auth_token():
@@ -43,7 +45,7 @@ def check_auth_token():
         return False
     return True
 
-# Заглушка для остатков на складе
+# Заглушка для остатков на складе (для начальной инициализации)
 stock_data = {
     "Пекарня на Победы": {
         "Пирожок с мясом": 200,
@@ -67,6 +69,58 @@ stock_data = {
         "сосиска в тесте": 60
     }
 }
+
+# Инициализация файла products.json, если он не существует
+def init_products_file():
+    if not os.path.exists(PRODUCTS_FILE):
+        with open(PRODUCTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False)  # Изначально пустой список
+        logger.info("Файл products.json инициализирован")
+
+# Инициализация файла stocks.json, если он не существует
+def init_stocks_file():
+    if not os.path.exists(STOCKS_FILE):
+        with open(STOCKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(stock_data, f, ensure_ascii=False)
+        logger.info("Файл stocks.json инициализирован с начальными данными")
+
+init_products_file()
+init_stocks_file()
+
+# Обновление списка товаров на основе данных из СБИС
+def update_products_from_data(data):
+    try:
+        # Читаем текущий список товаров
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                products = json.load(f)
+        else:
+            products = []
+
+        # Собираем все названия товаров из данных
+        product_names = set()
+        for point in data:
+            for item in point['items']:
+                product_names.add(item['name'])
+
+        # Проверяем существующие товары
+        existing_names = {product["name"] for product in products}
+        max_id = max([p["id"] for p in products], default=0) if products else 0
+
+        # Добавляем новые товары
+        new_products = []
+        for name in product_names:
+            if name not in existing_names:
+                max_id += 1
+                new_products.append({"id": max_id, "name": name})
+
+        if new_products:
+            products.extend(new_products)
+            with open(PRODUCTS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(products, f, ensure_ascii=False)
+            logger.info(f"Добавлено {len(new_products)} новых товаров в products.json")
+    except Exception as e:
+        logger.error(f"Ошибка при обновлении списка товаров: {str(e)}")
 
 # Инициализация SBISApp
 sbis_app = SBISApp(
@@ -121,6 +175,10 @@ def get_receipts():
     try:
         receipts = sbis_app.get_receipts(sid, date_from, date_to, point_name)
         logger.info(f"Всего обработано чеков: {len(receipts)}, агрегировано точек: {len(set(r['point_name'] for r in receipts))}")
+
+        # Обновляем список товаров на основе полученных данных
+        update_products_from_data(receipts)
+
         return jsonify({"data": receipts})
     except Exception as e:
         logger.error(f"Ошибка получения чеков: {str(e)}")
@@ -154,6 +212,9 @@ def get_production_plan():
     try:
         receipts = sbis_app.get_receipts(sid, date_from, date_to, point_name)
         logger.info(f"Получено чеков: {len(receipts)}")
+
+        # Обновляем список товаров на основе полученных данных
+        update_products_from_data(receipts)
     except Exception as e:
         logger.error(f"Ошибка получения данных о продажах: {str(e)}")
         return jsonify({"error": f"Ошибка получения данных о продажах: {str(e)}"}), 500
@@ -299,6 +360,23 @@ def get_production_plan():
         logger.error(f"Ошибка формирования плана производства: {str(e)}")
         return jsonify({"error": f"Ошибка формирования плана производства: {str(e)}"}), 500
 
+@app.route('/api/products', methods=['GET'])
+def get_products():
+    if not check_auth_token():
+        return jsonify({"error": "Неавторизованный доступ"}), 401
+
+    try:
+        # Читаем список товаров из файла
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                products = json.load(f)
+        else:
+            products = []
+        return jsonify({"products": products})
+    except Exception as e:
+        logger.error(f"Ошибка получения списка товаров: {str(e)}")
+        return jsonify({"error": f"Ошибка получения списка товаров: {str(e)}"}), 500
+
 @app.route('/api/writeoffs', methods=['GET'])
 def get_writeoffs():
     if not check_auth_token():
@@ -311,6 +389,24 @@ def get_writeoffs():
                 writeoffs = json.load(f)
         else:
             writeoffs = []
+
+        # Читаем список товаров для преобразования product_id в product
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                products = json.load(f)
+        else:
+            products = []
+
+        product_map = {str(product["id"]): product["name"] for product in products}
+
+        # Преобразуем product_id в название продукта
+        for writeoff in writeoffs:
+            if "product_id" in writeoff:
+                writeoff["product"] = product_map.get(str(writeoff["product_id"]), "Неизвестный товар")
+            else:
+                # Для старых записей, где product_id ещё не используется
+                writeoff["product"] = writeoff.get("product", "Неизвестный товар")
+
         return jsonify({"writeoffs": writeoffs})
     except Exception as e:
         logger.error(f"Ошибка получения списаний: {str(e)}")
@@ -326,21 +422,49 @@ def add_writeoff():
         if not data:
             return jsonify({"error": "Данные не переданы"}), 400
 
+        # Проверяем, является ли data списком (массовое добавление) или объектом (одиночное добавление)
+        if isinstance(data, list):
+            writeoffs_to_add = data
+        else:
+            writeoffs_to_add = [data]
+
+        # Читаем список товаров для проверки product_id
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                products = json.load(f)
+        else:
+            products = []
+
+        product_ids = {product["id"] for product in products}
+
         # Валидация данных
-        required_fields = ["date", "point", "product", "quantity", "reason"]
-        for field in required_fields:
-            if field not in data or not data[field]:
-                return jsonify({"error": f"Поле {field} обязательно"}), 400
+        required_fields = ["date", "point", "product_id", "quantity"]
+        new_writeoffs = []
+        for writeoff_data in writeoffs_to_add:
+            for field in required_fields:
+                if field not in writeoff_data or not writeoff_data[field]:
+                    return jsonify({"error": f"Поле {field} обязательно"}), 400
 
-        # Валидация формата даты
-        try:
-            datetime.strptime(data["date"], "%Y-%m-%d")
-        except ValueError:
-            return jsonify({"error": "Некорректный формат даты. Используйте формат YYYY-MM-DD (например, 2025-05-08)"}), 400
+            # Валидация формата даты
+            try:
+                datetime.strptime(writeoff_data["date"], "%Y-%m-%d")
+            except ValueError:
+                return jsonify({"error": "Некорректный формат даты. Используйте формат YYYY-MM-DD (например, 2025-05-08)"}), 400
 
-        quantity = int(data["quantity"])
-        if quantity <= 0:
-            return jsonify({"error": "Количество должно быть больше 0"}), 400
+            product_id = int(writeoff_data["product_id"])
+            if product_id not in product_ids:
+                return jsonify({"error": f"Товар с id {product_id} не найден"}), 400
+
+            quantity = int(writeoff_data["quantity"])
+            if quantity <= 0:
+                return jsonify({"error": "Количество должно быть больше 0"}), 400
+
+            new_writeoffs.append({
+                "date": writeoff_data["date"],
+                "point": writeoff_data["point"],
+                "product_id": product_id,
+                "quantity": quantity
+            })
 
         # Читаем текущие списания
         if os.path.exists(WRITE_OFFS_FILE):
@@ -349,28 +473,21 @@ def add_writeoff():
         else:
             writeoffs = []
 
-        # Создаём новое списание с уникальным id
-        writeoff = {
-            "id": len(writeoffs) + 1,  # Автоинкрементный id
-            "date": data["date"],
-            "point": data["point"],
-            "product": data["product"],
-            "quantity": quantity,
-            "reason": data["reason"]
-        }
-
-        # Добавляем новое списание
-        writeoffs.append(writeoff)
+        # Добавляем новые списания с уникальными id
+        max_id = max([w["id"] for w in writeoffs], default=0) if writeoffs else 0
+        for i, writeoff in enumerate(new_writeoffs):
+            writeoff["id"] = max_id + 1 + i
+            writeoffs.append(writeoff)
 
         # Сохраняем в файл
         with open(WRITE_OFFS_FILE, 'w', encoding='utf-8') as f:
             json.dump(writeoffs, f, ensure_ascii=False)
 
-        logger.info("Списание успешно добавлено")
-        return jsonify({"message": "Списание успешно добавлено", "writeoff": writeoff}), 201
+        logger.info(f"Добавлено {len(new_writeoffs)} списаний")
+        return jsonify({"message": f"Добавлено {len(new_writeoffs)} списаний", "writeoffs": new_writeoffs}), 201
     except Exception as e:
-        logger.error(f"Ошибка добавления списания: {str(e)}")
-        return jsonify({"error": f"Ошибка добавления списания: {str(e)}"}), 500
+        logger.error(f"Ошибка добавления списаний: {str(e)}")
+        return jsonify({"error": f"Ошибка добавления списаний: {str(e)}"}), 500
 
 @app.route('/api/writeoffs/<int:id>', methods=['DELETE'])
 def delete_writeoff(id):
@@ -402,6 +519,86 @@ def delete_writeoff(id):
     except Exception as e:
         logger.error(f"Ошибка удаления списания с id {id}: {str(e)}")
         return jsonify({"error": f"Ошибка удаления списания: {str(e)}"}), 500
+
+@app.route('/api/stocks', methods=['GET'])
+def get_stocks():
+    if not check_auth_token():
+        return jsonify({"error": "Неавторизованный доступ"}), 401
+
+    try:
+        # Читаем остатки из файла
+        if os.path.exists(STOCKS_FILE):
+            with open(STOCKS_FILE, 'r', encoding='utf-8') as f:
+                stocks = json.load(f)
+        else:
+            stocks = {}
+        return jsonify({"stocks": stocks})
+    except Exception as e:
+        logger.error(f"Ошибка получения остатков: {str(e)}")
+        return jsonify({"error": f"Ошибка получения остатков: {str(e)}"}), 500
+
+@app.route('/api/stocks', methods=['POST'])
+def update_stock():
+    if not check_auth_token():
+        return jsonify({"error": "Неавторизованный доступ"}), 401
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Данные не переданы"}), 400
+
+        # Валидация данных
+        required_fields = ["point", "product", "quantity", "operation"]
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({"error": f"Поле {field} обязательно"}), 400
+
+        point = data["point"]
+        product = data["product"]
+        quantity = int(data["quantity"])
+        operation = data["operation"]
+
+        if quantity < 0:
+            return jsonify({"error": "Количество не может быть меньше 0"}), 400
+
+        if operation not in ["add", "subtract", "set"]:
+            return jsonify({"error": "Операция должна быть 'add', 'subtract' или 'set'"}), 400
+
+        # Читаем текущие остатки
+        if os.path.exists(STOCKS_FILE):
+            with open(STOCKS_FILE, 'r', encoding='utf-8') as f:
+                stocks = json.load(f)
+        else:
+            stocks = {}
+
+        # Инициализируем точку, если её нет
+        if point not in stocks:
+            stocks[point] = {}
+
+        # Инициализируем продукт, если его нет
+        if product not in stocks[point]:
+            stocks[point][product] = 0
+
+        # Обновляем остатки
+        if operation == "add":
+            stocks[point][product] += quantity
+        elif operation == "subtract":
+            new_quantity = stocks[point][product] - quantity
+            if new_quantity < 0:
+                return jsonify({"error": "Количество не может быть меньше 0"}), 400
+            stocks[point][product] = new_quantity
+        elif operation == "set":
+            stocks[point][product] = quantity
+
+        # Сохраняем обновлённые остатки
+        with open(STOCKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(stocks, f, ensure_ascii=False)
+
+        logger.info(f"Остатки обновлены: {point}, {product}, {operation}, {quantity}")
+        return jsonify({"message": "Остатки обновлены", "point": point, "product": product, "quantity": stocks[point][product]}), 200
+    except Exception as e:
+        logger.error(f"Ошибка обновления остатков: {str(e)}")
+        return jsonify({"error": f"Ошибка обновления остатков: {str(e)}"}), 500
 
 # Вывод зарегистрированных маршрутов
 logger.info("Зарегистрированные маршруты:")

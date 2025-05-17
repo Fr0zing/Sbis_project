@@ -125,13 +125,20 @@
             <!-- Вкладка: Остатки на складах -->
             <div id="stock" class="tab-content bg-white p-6 rounded-lg shadow-md">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Остатки на складах</h3>
-                <button class="refresh-btn bg-blue-500 text-white px-4 py-2 rounded mb-4" data-tab="stock">Обновить</button>
+                <div class="filters mb-4">
+                    <label for="stockPointSelect" class="mr-2">Точка продаж:</label>
+                    <select id="stockPointSelect" class="border p-2 rounded">
+                        <option value="">Выберите точку</option>
+                    </select>
+                    <button class="refresh-btn bg-blue-500 text-white px-4 py-2 rounded ml-4" data-tab="stock">Обновить</button>
+                </div>
                 <div id="loadingSpinner" class="spinner"></div>
                 <table class="w-full border-collapse">
                     <thead>
                         <tr class="bg-gray-200">
                             <th class="border p-2">Продукт</th>
                             <th class="border p-2">Количество</th>
+                            <th class="border p-2">Действия</th>
                         </tr>
                     </thead>
                     <tbody id="stockData"></tbody>

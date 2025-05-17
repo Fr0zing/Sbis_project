@@ -1,5 +1,3 @@
-// writeoffs.js
-
 document.addEventListener("DOMContentLoaded", async function () {
     // Инициализация календаря для фильтра по дате
     flatpickr("#writeoffFilterDateRange", {
@@ -11,6 +9,18 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Показать сообщение об ошибке через модальное окно
     function showError(message) {
         window.common.showModal("Ошибка", message, "error");
+    }
+
+    // Загрузка списка товаров
+    async function loadProducts() {
+        try {
+            const response = await window.common.axiosWithRetry(() => window.common.axiosInstance.get("http://localhost:5000/api/products"));
+            return response.data.products || [];
+        } catch (error) {
+            console.error("Ошибка при загрузке списка товаров:", error);
+            showError(`Ошибка загрузки списка товаров: ${error.response?.data?.error || error.message}`);
+            return [];
+        }
     }
 
     // Загрузка списка точек продаж для вкладки "Списания"
@@ -43,6 +53,21 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.error("Ошибка при загрузке точек продаж для списаний:", error);
             showError(`Ошибка загрузки точек продаж: ${error.response?.data?.error || error.message}`);
         }
+    }
+
+    // Загрузка списка товаров для модального окна
+    async function loadProductsForModal() {
+        const products = await loadProducts();
+        const modalProductSelects = document.querySelectorAll(".modal-product-select");
+        modalProductSelects.forEach(select => {
+            select.innerHTML = '<option value="">Выберите продукт</option>';
+            products.forEach(product => {
+                const option = document.createElement("option");
+                option.value = product.id;
+                option.textContent = product.name;
+                select.appendChild(option);
+            });
+        });
     }
 
     // Функция для получения и фильтрации списаний
@@ -148,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <div class="writeoff-item flex items-center space-x-2 border p-2 rounded mb-2">
                         <input type="text" id="modalWriteoffDate0" class="border p-1 rounded w-8 modal-date text-sm" placeholder="Дата списания">
                         <select id="modalPointSelect0" class="border p-1 rounded w-44 modal-point-select text-sm"></select>
-                        <input type="text" id="modalWriteoffProduct0" class="border p-1 rounded w-68 text-sm" placeholder="Продукт">
+                        <select id="modalWriteoffProduct0" class="border p-1 rounded w-68 modal-product-select text-sm"></select>
                         <input type="number" id="modalWriteoffQuantity0" class="border p-1 rounded w-28 text-sm" placeholder="Количество" min="0">
                         <button class="remove-item text-red-500 hover:text-red-700" style="display: none;">✖</button>
                     </div>
@@ -172,8 +197,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             });
         });
 
-        // Заполняем точки продаж в модальном окне
+        // Заполняем точки продаж и продукты в модальном окне
         loadWriteoffPoints();
+        loadProductsForModal();
 
         // Обработчик закрытия модального окна
         const closeModal = () => modal.remove();
@@ -192,7 +218,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             newItem.innerHTML = `
                 <input type="text" id="modalWriteoffDate${itemCount}" class="border p-1 rounded w-8 modal-date text-sm" placeholder="Дата списания">
                 <select id="modalPointSelect${itemCount}" class="border p-1 rounded w-44 modal-point-select text-sm"></select>
-                <input type="text" id="modalWriteoffProduct${itemCount}" class="border p-1 rounded w-68 text-sm" placeholder="Продукт">
+                <select id="modalWriteoffProduct${itemCount}" class="border p-1 rounded w-68 modal-product-select text-sm"></select>
                 <input type="number" id="modalWriteoffQuantity${itemCount}" class="border p-1 rounded w-28 text-sm" placeholder="Количество" min="0">
                 <button class="remove-item text-red-500 hover:text-red-700">✖</button>
             `;
@@ -206,18 +232,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                 defaultDate: new Date().toISOString().split('T')[0]
             });
 
-            // Заполняем точки продаж для нового элемента
+            // Заполняем точки продаж и продукты для нового элемента
             loadWriteoffPoints();
+            loadProductsForModal();
 
             // Обновляем видимость кнопок удаления
-            updateItemRemoval();
+            updateItemLabels();
         });
 
-        // Обновление видимости кнопок удаления
-        function updateItemRemoval() {
+        // Обновление нумерации товаров и видимости кнопок удаления
+        function updateItemLabels() {
             const items = document.querySelectorAll(".writeoff-item");
             const removeButtons = document.querySelectorAll(".remove-item");
-
             removeButtons.forEach(button => {
                 button.style.display = items.length > 1 ? "block" : "none";
                 // Удаляем старые обработчики, чтобы избежать дублирования
@@ -230,7 +256,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 button.addEventListener("click", () => {
                     button.parentElement.remove();
                     itemCount--;
-                    updateItemRemoval();
+                    updateItemLabels();
                 });
             });
         }
@@ -243,7 +269,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             for (let i = 0; i < items.length; i++) {
                 const date = document.getElementById(`modalWriteoffDate${i}`).value;
                 const point = document.getElementById(`modalPointSelect${i}`).value;
-                const product = document.getElementById(`modalWriteoffProduct${i}`).value.trim();
+                const product_id = parseInt(document.getElementById(`modalWriteoffProduct${i}`).value);
                 const quantity = parseInt(document.getElementById(`modalWriteoffQuantity${i}`).value);
 
                 // Валидация
@@ -254,7 +280,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     return;
                 }
 
-                if (!date || !point || !product || isNaN(quantity) || quantity <= 0) {
+                if (!date || !point || isNaN(product_id) || isNaN(quantity) || quantity <= 0) {
                     window.common.showModal("Ошибка", "Пожалуйста, заполните все поля корректно для каждого товара!", "error");
                     return;
                 }
@@ -262,7 +288,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 writeoffs.push({
                     date,
                     point,
-                    product,
+                    product_id,
                     quantity
                 });
             }
