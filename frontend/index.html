@@ -141,25 +141,8 @@
             <!-- Вкладка: Списания -->
             <div id="writeoffs" class="tab-content bg-white p-6 rounded-lg shadow-md">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Списания</h3>
-                <div class="writeoff-form mb-4">
-                    <label for="writeoffDate" class="mr-2">Дата списания:</label>
-                    <input type="text" id="writeoffDate" class="border p-2 rounded" placeholder="Выберите дату">
-
-                    <label for="writeoffPointSelect" class="ml-4 mr-2">Точка продаж:</label>
-                    <select id="writeoffPointSelect" class="border p-2 rounded">
-                        <option value="">Выберите точку</option>
-                    </select>
-
-                    <label for="writeoffProduct" class="ml-4 mr-2">Продукт:</label>
-                    <input type="text" id="writeoffProduct" class="border p-2 rounded" placeholder="Введите название продукта">
-
-                    <label for="writeoffQuantity" class="ml-4 mr-2">Количество:</label>
-                    <input type="number" id="writeoffQuantity" class="border p-2 rounded" placeholder="Введите количество" min="0">
-
-                    <label for="writeoffReason" class="ml-4 mr-2">Причина списания:</label>
-                    <input type="text" id="writeoffReason" class="border p-2 rounded" placeholder="Введите причину">
-
-                    <button id="submitWriteoff" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Добавить списание</button>
+                <div class="mb-4">
+                    <button id="openAddWriteoffModal" class="bg-blue-500 text-white px-4 py-2 rounded">Добавить списание</button>
                 </div>
                 <div class="filters mb-4">
                     <label for="writeoffFilterDateRange" class="mr-2">Фильтр по дате:</label>
@@ -170,7 +153,8 @@
                         <option value="">Все точки</option>
                     </select>
 
-                    <button id="exportWriteoffsToExcel" class="bg-green-500 text-white px-4 py-2 rounded ml-4">Экспорт в Excel</button>
+                    <button id="applyWriteoffFilters" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Применить фильтры</button>
+                    <button id="exportWriteoffsToExcel" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Экспорт в Excel</button>
                 </div>
                 <div id="loadingSpinner" class="spinner"></div>
                 <table class="w-full border-collapse">
@@ -180,7 +164,6 @@
                             <th class="border p-2">Точка продаж</th>
                             <th class="border p-2">Продукт</th>
                             <th class="border p-2">Количество</th>
-                            <th class="border p-2">Причина</th>
                             <th class="border p-2">Действия</th>
                         </tr>
                     </thead>
