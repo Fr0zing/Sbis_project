@@ -1,11 +1,12 @@
-// sales.js
-
 document.addEventListener("DOMContentLoaded", async function () {
     let isLoading = false;
     let currentData = null; // Сохраняем текущие данные для экспорта
 
+    // Получаем текущую дату в формате YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0]; // Например, "2025-05-18"
+
     // Восстановление фильтров из localStorage
-    const savedDateRange = localStorage.getItem("dateRange") || "2025-04-01 to 2025-04-10";
+    const savedDateRange = localStorage.getItem("dateRange") || `${today} to ${today}`;
     const savedPointName = localStorage.getItem("pointName") || "";
 
     // Проверяем, что savedDateRange корректно
@@ -16,8 +17,8 @@ document.addEventListener("DOMContentLoaded", async function () {
             throw new Error("Некорректный формат savedDateRange");
         }
     } catch (error) {
-        console.log("Некорректный формат savedDateRange, используем значение по умолчанию");
-        defaultDateRange = ["2025-04-01", "2025-04-10"];
+        console.log("Некорректный формат savedDateRange, используем текущий день");
+        defaultDateRange = [today, today];
     }
 
     // Инициализация календаря для вкладки "Статистика продаж"
@@ -27,6 +28,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         maxDate: "today",
         defaultDate: defaultDateRange
     });
+
+    // Функция для форматирования суммы из копеек в рубли
+    function formatAmount(amountInKopecks) {
+        const amountInRubles = amountInKopecks / 100;
+        return `${amountInRubles.toFixed(2)} ₽`;
+    }
+
+    // Функция для пересчёта итоговой суммы на основе сумм отдельных товаров
+    function calculateTotalSum(point) {
+        const totalSum = point.items.reduce((sum, item) => sum + item.total_sum, 0);
+        console.log(`Пересчитанная итоговая сумма для точки ${point.point_name} (в копейках):`, totalSum);
+        return totalSum;
+    }
 
     // Загружаем сохранённые данные для статистики продаж
     const cachedSalesData = localStorage.getItem("salesData");
@@ -44,15 +58,17 @@ document.addEventListener("DOMContentLoaded", async function () {
                     row.innerHTML = `
                         <td>${point.point_name}</td>
                         <td>${item.name}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.total_sum}</td>
+                        <td class="number-cell">${item.quantity} шт.</td>
+                        <td class="number-cell">${formatAmount(item.total_sum)}</td>
                     `;
                     tableBody.appendChild(row);
                 });
+                // Пересчитываем итоговую сумму
+                const totalSum = calculateTotalSum(point);
                 const totalRow = document.createElement("tr");
                 totalRow.innerHTML = `
                     <td colspan='3'><strong>Итого для ${point.point_name}</strong></td>
-                    <td><strong>${point.total_sum}</strong></td>
+                    <td class="number-cell"><strong>${formatAmount(totalSum)}</strong></td>
                 `;
                 tableBody.appendChild(totalRow);
             });
@@ -119,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         // Формируем данные для XLSX
         const data = [];
         // Добавляем заголовки
-        data.push(["Точка продаж", "Продукт", "Количество", "Сумма (руб.)"]);
+        data.push(["Точка продаж", "Продукт", "Количество (шт.)", "Сумма (руб.)"]);
 
         currentData.forEach(point => {
             point.items.forEach(item => {
@@ -127,15 +143,16 @@ document.addEventListener("DOMContentLoaded", async function () {
                     point.point_name,
                     item.name,
                     item.quantity,
-                    item.total_sum
+                    (item.total_sum / 100).toFixed(2) // Переводим сумму в рубли
                 ]);
             });
-            // Добавляем строку с итогом
+            // Пересчитываем итоговую сумму
+            const totalSum = calculateTotalSum(point);
             data.push([
                 `Итого для ${point.point_name}`,
                 "",
                 "",
-                point.total_sum
+                (totalSum / 100).toFixed(2) // Переводим итоговую сумму в рубли
             ]);
         });
 
@@ -192,13 +209,18 @@ document.addEventListener("DOMContentLoaded", async function () {
         localStorage.setItem("dateRange", document.getElementById("dateRange").value);
         localStorage.setItem("pointName", pointName);
 
+        // Проверяем количество дней в периоде
+        const daysDiff = common.getDaysDifference(dateFrom, dateTo);
+        console.log(`Разница в днях: ${daysDiff}`);
+        if (daysDiff > 31) {
+            showError("Выбранный период превышает 31 день. Пожалуйста, выберите период не более 31 дня.");
+            setLoading(false);
+            return;
+        }
+
         let allData = [];
 
         try {
-            // Вычисляем количество дней в периоде
-            const daysDiff = common.getDaysDifference(dateFrom, dateTo);
-            console.log(`Разница в днях: ${daysDiff}`);
-
             if (daysDiff <= 0) {
                 console.log("Период слишком короткий, делаем один запрос");
                 const params = new URLSearchParams({
@@ -253,9 +275,13 @@ document.addEventListener("DOMContentLoaded", async function () {
 
             console.log("Все данные получены:", allData);
 
-            // Если выбраны "Все точки", агрегируем данные
-            if (!pointName) {
+            // Если выбрана конкретная точка, агрегируем данные для неё
+            if (pointName) {
+                allData = [aggregateSinglePoint(allData)];
+            } else {
+                // Если выбраны "Все точки", агрегируем данные
                 const aggregatedData = common.aggregateAllPoints(allData);
+                console.log("Агрегированные данные для всех точек:", aggregatedData);
                 allData = [aggregatedData];
             }
 
@@ -278,20 +304,23 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
 
             currentData.forEach(point => {
+                console.log(`Обработка точки: ${point.point_name}, items:`, point.items);
                 point.items.forEach(item => {
                     const row = document.createElement("tr");
                     row.innerHTML = `
                         <td>${point.point_name}</td>
                         <td>${item.name}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.total_sum}</td>
+                        <td class="number-cell">${item.quantity} шт.</td>
+                        <td class="number-cell">${formatAmount(item.total_sum)}</td>
                     `;
                     tableBody.appendChild(row);
                 });
+                // Пересчитываем итоговую сумму
+                const totalSum = calculateTotalSum(point);
                 const totalRow = document.createElement("tr");
                 totalRow.innerHTML = `
                     <td colspan='3'><strong>Итого для ${point.point_name}</strong></td>
-                    <td><strong>${point.total_sum}</strong></td>
+                    <td class="number-cell"><strong>${formatAmount(totalSum)}</strong></td>
                 `;
                 tableBody.appendChild(totalRow);
             });
