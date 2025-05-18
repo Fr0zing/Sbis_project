@@ -1,5 +1,3 @@
-// common.js
-
 // Функция для задержки
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -69,7 +67,7 @@ function aggregateAllPoints(data) {
     };
 }
 
-// Функция для отображения модального окна
+// Функция для отображения модального окна с сообщением
 function showModal(title, message, type = 'error') {
     console.log(`showModal вызван: title=${title}, message=${message}, type=${type}`);
 
@@ -80,36 +78,35 @@ function showModal(title, message, type = 'error') {
     }
 
     // Определяем стили в зависимости от типа сообщения
-    let bgColorClass, icon;
+    let icon;
     switch (type) {
         case 'success':
-            bgColorClass = 'bg-green-500';
             icon = '✔'; // Иконка успеха
             break;
         case 'warning':
-            bgColorClass = 'bg-yellow-500';
             icon = '⚠'; // Иконка предупреждения
             break;
         case 'error':
         default:
-            bgColorClass = 'bg-red-500';
             icon = '✖'; // Иконка ошибки
             break;
     }
 
     // Создаём модальное окно
     const modal = document.createElement('div');
-    modal.className = 'modal fixed inset-0 flex items-center justify-center z-50';
+    modal.className = 'modal';
     modal.innerHTML = `
-        <div class="fixed inset-0 bg-black opacity-50"></div>
-        <div class="relative bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
-            <div class="flex items-center mb-4">
-                <span class="text-2xl mr-2">${icon}</span>
-                <h2 class="text-xl font-semibold ${bgColorClass} text-white px-4 py-2 rounded">${title}</h2>
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">${icon}</span>
+                <h2 class="modal-title">${title}</h2>
             </div>
-            <p class="mb-4">${message}</p>
+            <div class="modal-body">
+                <p>${message}</p>
+            </div>
             <div class="flex justify-end">
-                <button class="close-modal bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Закрыть</button>
+                <button class="btn btn-gray close-modal">Закрыть</button>
             </div>
         </div>
     `;
@@ -129,6 +126,37 @@ function showModal(title, message, type = 'error') {
             closeModal();
         }
     });
+}
+
+// Функция для создания модального окна с кастомным содержимым и кнопками
+function createModal({ title, content, buttons }) {
+    console.log("createModal вызван:", { title, content, buttons }); // Отладочный лог
+
+    // Удаляем существующее модальное окно, если оно есть
+    const existingModal = document.querySelector('.modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">⚙️</span>
+                <h2 class="modal-title">${title}</h2>
+            </div>
+            <div class="modal-body">
+                ${content}
+            </div>
+            <div class="flex justify-end">
+                ${buttons.map(btn => `<button id="${btn.id}" class="btn ${btn.class || ''}">${btn.text}</button>`).join('')}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
 }
 
 // Глобальные переменные
@@ -211,7 +239,8 @@ window.common = {
     addDays,
     getDaysDifference,
     aggregateAllPoints,
-    showModal, // Добавляем функцию showModal
+    showModal,
+    createModal,
     axiosInstance,
     axiosWithRetry,
     getSid,
