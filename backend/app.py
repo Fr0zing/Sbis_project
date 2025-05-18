@@ -1,12 +1,13 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import logging
 import os
+import logging
+import requests
+import json
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from datetime import datetime, timedelta
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sbis_project.sbis_app import SBISApp
-import json
 from logging.handlers import TimedRotatingFileHandler
 from filelock import FileLock
 
@@ -797,17 +798,19 @@ def calculate_salaries():
     if not check_auth_token():
         return jsonify({"error": "Неавторизованный доступ"}), 401
 
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
+    month = request.args.get('month')  # Ожидаем формат "YYYY-MM"
 
-    if not date_from or not date_to:
-        return jsonify({"error": "date_from and date_to are required"}), 400
+    if not month:
+        return jsonify({"error": "Параметр month обязателен (формат: YYYY-MM)"}), 400
 
     try:
-        start = datetime.strptime(date_from, '%Y-%m-%d')
-        end = datetime.strptime(date_to, '%Y-%m-%d')
+        year, month_num = map(int, month.split('-'))
+        start = datetime(year, month_num, 1)
+        # Последний день месяца
+        next_month = start.replace(day=28) + timedelta(days=4)
+        end = next_month - timedelta(days=next_month.day)
     except ValueError:
-        return jsonify({"error": "Некорректный формат даты. Используйте YYYY-MM-DD"}), 400
+        return jsonify({"error": "Некорректный формат параметра month. Используйте YYYY-MM (например, 2025-05)"}), 400
 
     try:
         if os.path.exists(EMPLOYEES_FILE):
@@ -825,10 +828,12 @@ def calculate_salaries():
         rate_map = {r["group"]: {"paymentType": r["paymentType"], "hourly": r["hourlyRate"], "daily": r["dailyRate"]} for r in rates}
         salaries = []
 
-        current_date = start
-        while current_date <= end:
-            date_str = current_date.strftime('%Y-%m-%d')
-            for employee in employees:
+        # Возвращаем данные для всех сотрудников, даже если зарплата равна 0
+        for employee in employees:
+            total_salary = 0
+            current_date = start
+            while current_date <= end:
+                date_str = current_date.strftime('%Y-%m-%d')
                 hours_data = employee.get("hours", {}).get(date_str, {})
                 hours = hours_data.get("hours", 0) if hours_data else 0
                 worked = hours_data.get("worked", False) if hours_data else False
@@ -840,22 +845,18 @@ def calculate_salaries():
                     salary = hours * rate["hourly"]
                 elif rate["paymentType"] == "daily" and worked:
                     salary = rate["daily"]
+                total_salary += salary
+                current_date += timedelta(days=1)
 
-                if salary > 0:
-                    existing = next((s for s in salaries if s["id"] == employee["id"]), None)
-                    if existing:
-                        existing["totalSalary"] += salary
-                    else:
-                        salaries.append({
-                            "id": employee["id"],
-                            "firstName": employee["firstName"],
-                            "lastName": employee["lastName"],
-                            "group": group,
-                            "totalSalary": salary
-                        })
-            current_date += timedelta(days=1)
+            salaries.append({
+                "id": employee["id"],
+                "firstName": employee["firstName"],
+                "lastName": employee["lastName"],
+                "group": group,
+                "totalSalary": total_salary
+            })
 
-        logger.info(f"Рассчитаны зарплаты для {len(salaries)} сотрудников")
+        logger.info(f"Рассчитаны зарплаты для {len(salaries)} сотрудников за месяц {month}")
         return jsonify({"salaries": salaries})
     except Exception as e:
         logger.error(f"Ошибка расчёта зарплат: {str(e)}")

@@ -145,27 +145,20 @@
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Зарплаты</h3>
                 <div class="mb-4">
                     <button id="openSalarySettings" class="bg-blue-500 text-white px-4 py-2 rounded">Настройки</button>
-                    <button id="approveHours" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Утвердить часы</button>
+                    <button id="approveHours" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Сохранить</button>
                     <button id="exportSalariesToExcel" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Экспорт в Excel</button>
                 </div>
                 <div class="filters mb-4">
-                    <label for="salaryFilterDateRange" class="mr-2">Фильтр по дате:</label>
-                    <input type="text" id="salaryFilterDateRange" class="border p-2 rounded" placeholder="Выберите период">
-                    <button id="applySalaryFilters" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Применить фильтры</button>
+                    <label for="salaryMonthSelect" class="mr-2">Выберите месяц:</label>
+                    <select id="salaryMonthSelect" class="border p-2 rounded">
+                        <!-- Месяцы будут добавлены через JavaScript -->
+                    </select>
+                    <button id="applySalaryFilters" class="bg-blue-500 text-white px-4 py-2 rounded ml-4">Показать</button>
                 </div>
                 <div id="loadingSpinner" class="spinner"></div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Имя</th>
-                            <th>Фамилия</th>
-                            <th>Группа</th>
-                            <th>Даты</th>
-                            <th>Итоговая зарплата</th>
-                        </tr>
-                    </thead>
-                    <tbody id="salaryData"></tbody>
-                </table>
+                <div id="salaryDataContainer">
+                    <!-- Таблица будет сгенерирована динамически -->
+                </div>
             </div>
         </div>
     </div>
