@@ -1,5 +1,3 @@
-// production.js
-
 document.addEventListener("DOMContentLoaded", async function () {
     let isLoading = false;
     let productionData = null; // Сохраняем данные плана производства
@@ -120,13 +118,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 const adjustedToProduce = quantityAdjustments[key] !== undefined ? quantityAdjustments[key] : item.to_produce;
                 row.innerHTML = `
                     <td>${item.name}</td>
-                    <td>${item.demand}</td>
-                    <td>${item.stock}</td>
-                    <td>${adjustedToProduce}</td>
+                    <td class="number-cell">${item.demand} шт.</td>
+                    <td class="number-cell">${item.stock} шт.</td>
+                    <td class="number-cell ${adjustedToProduce === 0 ? 'zero-to-produce' : ''}">${adjustedToProduce} шт.</td>
                     <td class="edit-actions ${isEditing ? '' : 'hidden'}">
-                        <button class="blacklist-btn bg-red-500 text-white px-2 py-1 rounded mr-1" data-item="${item.name}">В чёрный список</button>
-                        <button class="increment-btn bg-blue-500 text-white px-2 py-1 rounded mr-1" data-key="${key}" data-item="${item.name}" data-point="${pointData.point_name}">+</button>
-                        <button class="decrement-btn bg-blue-500 text-white px-2 py-1 rounded" data-key="${key}" data-item="${item.name}" data-point="${pointData.point_name}">−</button>
+                        <button class="blacklist-btn" data-item="${item.name}">В чёрный список</button>
+                        <button class="increment-btn" data-key="${key}" data-item="${item.name}" data-point="${pointData.point_name}">+</button>
+                        <button class="decrement-btn" data-key="${key}" data-item="${item.name}" data-point="${pointData.point_name}">−</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
@@ -142,7 +140,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         const totalRow = document.createElement("tr");
         totalRow.innerHTML = `
             <td colspan='3'><strong>Итого для ${pointData.point_name}</strong></td>
-            <td><strong>${totalToProduce}</strong></td>
+            <td class="number-cell"><strong>${totalToProduce} шт.</strong></td>
             <td></td>
         `;
         tableBody.appendChild(totalRow);

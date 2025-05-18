@@ -238,6 +238,18 @@ def get_production_plan():
         logger.info("Чеки отсутствуют, возвращаем пустой план производства")
         return jsonify({"data": []}), 200
 
+    # Загрузка остатков из stocks.json
+    try:
+        if os.path.exists(STOCKS_FILE):
+            with open(STOCKS_FILE, 'r', encoding='utf-8') as f:
+                stock_data = json.load(f)
+        else:
+            stock_data = {}
+        logger.info(f"Остатки загружены из {STOCKS_FILE}: {stock_data}")
+    except Exception as e:
+        logger.error(f"Ошибка загрузки остатков из {STOCKS_FILE}: {str(e)}")
+        return jsonify({"error": f"Ошибка загрузки остатков: {str(e)}"}), 500
+
     sales_by_day_of_week = {}
     try:
         for point in receipts:
