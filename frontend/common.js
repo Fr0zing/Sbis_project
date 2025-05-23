@@ -165,10 +165,21 @@ let kktList = null;
 
 // Инициализация Axios
 const axiosInstance = axios.create({
+    baseURL: "http://localhost:5000",
     timeout: 120000, // Таймаут 120 секунд
     headers: {
-        "Authorization": `Bearer ${window.config.API_TOKEN}`
+        "Content-Type": "application/json"
     }
+});
+
+// Добавляем интерцептор для динамического добавления API_TOKEN
+axiosInstance.interceptors.request.use(config => {
+    if (window.API_TOKEN) {
+        config.headers.Authorization = `Bearer ${window.API_TOKEN}`;
+    } else {
+        console.warn("API_TOKEN не установлен, запрос может быть отклонён");
+    }
+    return config;
 });
 
 // Функция для повторных попыток
@@ -189,8 +200,8 @@ async function getSid() {
     try {
         console.log("Запрашиваем SID...");
         console.log("Адрес API:", "http://localhost:5000/api/auth");
-        console.log("Заголовки:", { "Authorization": `Bearer ${window.config.API_TOKEN}` });
-        const response = await axiosWithRetry(() => axiosInstance.get("http://localhost:5000/api/auth"));
+        console.log("Заголовки:", { "Authorization": `Bearer ${window.API_TOKEN || 'не установлен'}` });
+        const response = await axiosWithRetry(() => axiosInstance.get("/api/auth"));
         sid = response.data.sid;
         console.log("SID получен:", sid);
         return sid;
@@ -215,7 +226,7 @@ async function loadKktList() {
 
     try {
         console.log("Запрашиваем список KKT...");
-        const response = await axiosWithRetry(() => axiosInstance.get("http://localhost:5000/api/kkts", {
+        const response = await axiosWithRetry(() => axiosInstance.get("/api/kkts", {
             headers: { "X-SBISSessionID": sid }
         }));
         kktList = response.data.kkts;
