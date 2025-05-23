@@ -33,7 +33,10 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Токен для авторизации
-API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-12345")
+API_TOKEN = os.getenv("API_TOKEN")  # Загружаем из .env
+
+if not API_TOKEN:
+    raise ValueError("API_TOKEN не установлен в переменных окружения")
 
 # Путь к файлам для хранения данных
 WRITE_OFFS_FILE = "writeoffs.json"
@@ -152,6 +155,10 @@ sbis_app = SBISApp(
     inn=os.getenv("SBIS_INN", "301806206800")
 )
 
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    return jsonify({"apiToken": API_TOKEN})
+
 @app.route('/api/auth', methods=['GET'])
 def auth():
     if not check_auth_token():
@@ -233,7 +240,7 @@ def get_production_plan():
         update_products_from_data(receipts)
     except Exception as e:
         logger.error(f"Ошибка получения данных о продажах: {str(e)}")
-        return jsonify({"error": f"Ошибка получения данных о продажах: {str(e)}"}), 500
+        return jsonify({"error": f"Ошибка получения данных о продажах: ${str(e)}"}), 500
 
     if not receipts:
         logger.info("Чеки отсутствуют, возвращаем пустой план производства")
