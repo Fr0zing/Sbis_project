@@ -21,3 +21,7 @@ venv/
 Игнорируем sid_cache.json
 
 backend/sid_cache.json
+
+__pycache__/
+
+*.pyc
