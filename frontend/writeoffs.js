@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         modal.className = 'modal fixed inset-0 flex items-center justify-center z-50';
         modal.innerHTML = `
             <div class="fixed inset-0 bg-black opacity-50"></div>
-            <div class="relative bg-white rounded-lg shadow-lg p-6 w-[1000px]">
+            <div class="relative bg-white rounded-lg shadow-lg p-6 w-[1240px]">
                 <div class="flex items-center mb-4">
                     <span class="text-2xl mr-2">📋</span>
                     <h2 class="text-xl font-semibold bg-blue-500 text-white px-4 py-2 rounded">Добавить списания</h2>
