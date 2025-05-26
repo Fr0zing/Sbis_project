@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
-CACHE_FILE = "sid_cache.json"
+CACHE_FILE = os.path.join("data", "sid_cache.json")
 
 def save_sid(sid, token):
     """Сохраняет SID и токен в файл с временной меткой."""
