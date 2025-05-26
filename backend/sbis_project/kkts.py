@@ -87,7 +87,7 @@ def get_cash_report(sid, reg_id, storage_id, date_from, date_to):
     params = {
         "dateFrom": date_from,
         "dateTo": date_to,
-        "limit": 200
+        "limit": 1000
     }
     try:
         response = requests.get(url, headers=headers, params=params, timeout=10)
